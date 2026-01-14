@@ -22,3 +22,12 @@ public class Page : Panel
 	public RenderFragment Body { get; set; }
 	public RenderFragment Left { get; set; }
 }
+
+public class BaseWithSlot : Panel
+{
+	public RenderFragment Header { get; set; }
+}
+
+public class DerivedWithSlot : BaseWithSlot
+{
+}

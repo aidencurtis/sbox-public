@@ -96,29 +96,33 @@ internal static class RazorCatalogBuilder
 	{
 		var slots = new HashSet<string>( StringComparer.OrdinalIgnoreCase );
 
-		foreach ( var member in type.GetMembers() )
+		// Include inherited slots (e.g. VirtualGrid inherits BaseVirtualPanel.Item)
+		for ( var current = type; current != null; current = current.BaseType )
 		{
-			if ( member is IPropertySymbol prop )
+			foreach ( var member in current.GetMembers() )
 			{
-				if ( !IsRenderFragmentType( prop.Type ) )
-					continue;
+				if ( member is IPropertySymbol prop )
+				{
+					if ( !IsRenderFragmentType( prop.Type ) )
+						continue;
 
-				// Needs to be assignable from generated code
-				if ( prop.SetMethod == null )
-					continue;
-				if ( !IsAssignableFromGeneratedCode( prop.SetMethod.DeclaredAccessibility ) )
-					continue;
+					// Needs to be assignable from generated code
+					if ( prop.SetMethod == null )
+						continue;
+					if ( !IsAssignableFromGeneratedCode( prop.SetMethod.DeclaredAccessibility ) )
+						continue;
 
-				slots.Add( prop.Name );
-			}
-			else if ( member is IFieldSymbol field )
-			{
-				if ( !IsRenderFragmentType( field.Type ) )
-					continue;
-				if ( !IsAssignableFromGeneratedCode( field.DeclaredAccessibility ) )
-					continue;
+					slots.Add( prop.Name );
+				}
+				else if ( member is IFieldSymbol field )
+				{
+					if ( !IsRenderFragmentType( field.Type ) )
+						continue;
+					if ( !IsAssignableFromGeneratedCode( field.DeclaredAccessibility ) )
+						continue;
 
-				slots.Add( field.Name );
+					slots.Add( field.Name );
+				}
 			}
 		}
 

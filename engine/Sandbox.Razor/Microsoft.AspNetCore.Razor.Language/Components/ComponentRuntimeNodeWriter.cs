@@ -332,6 +332,17 @@ namespace Microsoft.AspNetCore.Razor.Language.Components
 						}
 
 						var childTagName = childElement.TagName;
+
+						// Always allow explicit <ChildContent> wrapper for panels.
+						// This preserves the existing s&box pattern for disambiguation.
+						if ( string.Equals( childTagName, "ChildContent", System.StringComparison.OrdinalIgnoreCase ) )
+						{
+							childElement.TagName = "ChildContent";
+							childElement.Annotations["DeclaringType"] = panelClassName;
+							context.RenderNode( child );
+							continue;
+						}
+
 						var isSlot = catalog.IsSlot( panelClassName, childTagName );
 						var isKnownComponent = catalog.IsKnownComponent( childTagName );
 

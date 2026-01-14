@@ -263,5 +263,13 @@ namespace Generator
 			var ex = Assert.ThrowsException<System.Exception>( () => BuildRazorFile( "data/codegen/UnknownSlotError.razor" ) );
 			Assert.IsTrue( ex.Message.Contains( "Unknown child tag" ), "Should produce a helpful error message" );
 		}
+
+		[TestMethod]
+		public void InheritedSlotTest()
+		{
+			var code = BuildRazorFile( "data/codegen/InheritedSlotTest.razor" );
+			Assert.IsTrue( code.Contains( "SetRenderFragment<DerivedWithSlot>" ), "Should allow slots defined on base classes" );
+		}
 	}
 }
+
