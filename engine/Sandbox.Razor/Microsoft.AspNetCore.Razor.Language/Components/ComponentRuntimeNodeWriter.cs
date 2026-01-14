@@ -359,8 +359,20 @@ namespace Microsoft.AspNetCore.Razor.Language.Components
 						else
 						{
 							// Unknown uppercase tag under a panel - this is an error
-							var message = $"Unknown child tag '<{childTagName}>' under '<{panelClassName}>' in Razor. " +
+							var message = $"Unknown child tag '{childTagName}' under '{panelClassName}' in Razor. " +
 										$"It is neither a slot (RenderFragment member) on '{panelClassName}' nor a known Panel component type.";
+
+							// Provide a clearer hint for namespace-qualified tag names like Foo.Bar.Baz
+							if ( childTagName.Contains( '.' ) )
+							{
+								var lastDot = childTagName.LastIndexOf( '.' );
+								var ns = lastDot > 0 ? childTagName.Substring( 0, lastDot ) : null;
+								var simple = lastDot >= 0 && lastDot + 1 < childTagName.Length ? childTagName.Substring( lastDot + 1 ) : childTagName;
+
+								message += $" Namespace-qualified component tags are not supported. " +
+										$"Use '@using {ns}' and '{simple}' instead.";
+							}
+
 							throw new System.Exception( message );
 						}
 					}

@@ -31,3 +31,7 @@ public class BaseWithSlot : Panel
 public class DerivedWithSlot : BaseWithSlot
 {
 }
+
+public class BankGridDropZone : Panel
+{
+}

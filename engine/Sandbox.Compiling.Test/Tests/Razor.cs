@@ -270,6 +270,15 @@ namespace Generator
 			var code = BuildRazorFile( "data/codegen/InheritedSlotTest.razor" );
 			Assert.IsTrue( code.Contains( "SetRenderFragment<DerivedWithSlot>" ), "Should allow slots defined on base classes" );
 		}
+
+		[TestMethod]
+		public void NamespaceQualifiedTagError()
+		{
+			var ex = Assert.ThrowsException<System.Exception>( () => BuildRazorFile( "data/codegen/NamespaceQualifiedTagError.razor" ) );
+			Assert.IsTrue( ex.Message.Contains( "Namespace-qualified component tags are not supported" ), "Should suggest using @using + simple tag name" );
+			Assert.IsTrue( ex.Message.Contains( "BankGrid" ), "Should suggest the simple component tag" );
+		}
 	}
 }
+
 
