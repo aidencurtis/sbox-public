@@ -9,7 +9,7 @@ partial class Compiler
 	/// <summary>
 	/// Process Razor files from the code archive and generate C# syntax trees
 	/// </summary>
-	private List<SyntaxTree> ProcessRazorFiles( CodeArchive archive, CompilerOutput output )
+	private List<SyntaxTree> ProcessRazorFiles( CodeArchive archive, CompilerOutput output, CSharpCompilation compilation )
 	{
 		var razorFiles = archive.AdditionalFiles
 			.Where( x => x.LocalPath.EndsWith( ".razor", System.StringComparison.OrdinalIgnoreCase ) )
@@ -17,6 +17,9 @@ partial class Compiler
 
 		if ( razorFiles.Count == 0 )
 			return [];
+
+		// Build a catalog of known component types and their slots
+		var catalog = Sandbox.Compiling.RazorCatalogBuilder.Build( compilation, razorFiles );
 
 		var trees = new ConcurrentBag<SyntaxTree>();
 		var diagnostics = new ConcurrentBag<Diagnostic>();
@@ -37,7 +40,7 @@ partial class Compiler
 			{
 				// Use the existing RazorProcessor to generate C# code from the Razor file
 				// Pass the root namespace so Razor can auto-generate @namespace directives from folder structure
-				var generatedCode = Sandbox.Razor.RazorProcessor.GenerateFromSource( file.Text, file.LocalPath, archive.Configuration.RootNamespace, !archive.Version_UsesOldRazorNamespaces );
+				var generatedCode = Sandbox.Razor.RazorProcessor.GenerateFromSource( file.Text, file.LocalPath, archive.Configuration.RootNamespace, !archive.Version_UsesOldRazorNamespaces, catalog );
 
 				// Create the generated file path using the same naming convention
 				string filePath = $"_gen_{filenameOnly}_{hash:x}.cs";

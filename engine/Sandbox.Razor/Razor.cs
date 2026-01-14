@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Razor.Language;
+using Microsoft.AspNetCore.Razor.Language;
 using System.Collections.Generic;
 
 namespace Sandbox.Razor;
@@ -10,6 +10,11 @@ public static class RazorProcessor
 	/// </summary>
 	public static string GenerateFromSource( string text, string filename, string rootNamespace = null, bool useFolderNamespacing = true )
 	{
+		return GenerateFromSource( text, filename, rootNamespace, useFolderNamespacing, (RazorCatalog)null );
+	}
+
+	public static string GenerateFromSource( string text, string filename, string rootNamespace, bool useFolderNamespacing, RazorCatalog catalog )
+	{
 		// If a root namespace is provided and the file doesn't have an namespace inject one
 		if ( useFolderNamespacing )
 		{
@@ -19,8 +24,24 @@ public static class RazorProcessor
 		var engine = GetEngine();
 
 		RazorSourceDocument source = RazorSourceDocument.Create( text, filename );
-		RazorCodeDocument code = engine.Process( source, FileKinds.Component, new List<RazorSourceDocument>(), new List<TagHelperDescriptor>() );
+
+		// We need to set Items before processing so codegen can read them.
+		var defaultEngine = engine as Microsoft.AspNetCore.Razor.Language.DefaultRazorProjectEngine;
+		if ( defaultEngine == null )
+		{
+			throw new System.InvalidOperationException( "Expected DefaultRazorProjectEngine" );
+		}
+
+		var code = defaultEngine.CreateCodeDocumentCore( source, FileKinds.Component, new List<RazorSourceDocument>(), new List<TagHelperDescriptor>() );
 		code.SetCodeGenerationOptions( RazorCodeGenerationOptions.Create( o => { } ) );
+
+		// Store the catalog on the document so codegen can access it
+		if ( catalog != null )
+		{
+			code.Items["RazorCatalog"] = catalog;
+		}
+
+		defaultEngine.Engine.Process( code );
 
 		RazorCSharpDocument document = code.GetCSharpDocument();
 

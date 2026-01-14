@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -72,6 +72,13 @@ namespace Microsoft.AspNetCore.Razor.Language.CodeGeneration
 
 			Items[NewLineString] = codeDocument.Items[NewLineString];
 			Items[SuppressUniqueIds] = codeDocument.Items[SuppressUniqueIds];
+
+			// Propagate the RazorCatalog if present
+			var catalog = codeDocument.Items["RazorCatalog"];
+			if ( catalog != null )
+			{
+				Items["RazorCatalog"] = catalog;
+			}
 
 			_scopes = new List<ScopeInternal>();
 			_scopes.Add( new ScopeInternal( nodeWriter ) );

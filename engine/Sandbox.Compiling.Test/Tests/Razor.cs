@@ -28,14 +28,31 @@ namespace Generator
 
 			refs.Add( MetadataReference.CreateFromFile( typeof( Networking ).Assembly.Location ) );
 			refs.Add( MetadataReference.CreateFromFile( typeof( ConCmdAttribute ).Assembly.Location ) );
+			refs.Add( MetadataReference.CreateFromFile( typeof( Microsoft.AspNetCore.Components.IComponent ).Assembly.Location ) );
 
 			CSharpCompilation compiler = CSharpCompilation.Create( $"poopy.dll", SyntaxTree, refs, optn );
+
+			// Add shared test component types so Razor can resolve nested components/slots
+			var sharedTypesPath = System.IO.Path.GetFullPath( "data/codegen/RazorCatalogTestTypes.cs" );
+			if ( System.IO.File.Exists( sharedTypesPath ) )
+			{
+				var sharedTypesText = System.IO.File.ReadAllText( sharedTypesPath );
+				var sharedTypesTree = CSharpSyntaxTree.ParseText( sharedTypesText, path: "data/codegen/RazorCatalogTestTypes.cs", encoding: System.Text.Encoding.UTF8 );
+				compiler = compiler.AddSyntaxTrees( sharedTypesTree );
+			}
 
 			// Razor files are now processed via RazorProcessor.GenerateFromSource
 			// Generate C# code from the razor file first
 			var fullPath = System.IO.Path.GetFullPath( razorFilePath );
 			var razorText = System.IO.File.ReadAllText( fullPath );
-			var generatedCode = Sandbox.Razor.RazorProcessor.GenerateFromSource( razorText, razorFilePath );
+
+			var additionalFiles = new List<Sandbox.CodeArchive.AdditionalFile>
+			{
+				new( razorText, razorFilePath )
+			};
+			var catalog = Sandbox.Compiling.RazorCatalogBuilder.Build( compiler, additionalFiles );
+
+			var generatedCode = Sandbox.Razor.RazorProcessor.GenerateFromSource( razorText, razorFilePath, null, true, catalog );
 
 			// Parse into syntax tree and add to compilation
 			var razorTree = CSharpSyntaxTree.ParseText( generatedCode, path: $"_gen_{System.IO.Path.GetFileName( razorFilePath )}.cs", encoding: System.Text.Encoding.UTF8 );
@@ -48,9 +65,9 @@ namespace Generator
 
 			compiler = processor.Compilation;
 
-			Assert.AreEqual( 1, compiler.SyntaxTrees.Count() );
+			Assert.IsTrue( compiler.SyntaxTrees.Any( t => t.FilePath.Contains( "_gen_" ) ), "Expected generated Razor syntax tree" );
 
-			var code = compiler.SyntaxTrees.First();
+			var code = compiler.SyntaxTrees.First( t => t.FilePath.Contains( "_gen_" ) );
 			var source = code.GetText().ToString();
 			System.Console.WriteLine( source );
 			return source;
@@ -223,6 +240,28 @@ namespace Generator
 
 			Assert.IsTrue( generatedCodeRootLevel.Contains( "namespace MyApp" ), "Root-level file should use root namespace" );
 			Assert.IsFalse( generatedCodeRootLevel.Contains( "namespace MyApp." ), "Root-level file should not have sub-namespaces" );
+		}
+
+		[TestMethod]
+		public void NestedComponentWithoutChildContent()
+		{
+			var code = BuildRazorFile( "data/codegen/NestedComponentWithoutChildContent.razor" );
+			Assert.IsTrue( code.Contains( "OpenElement<BankGridItem>" ), "Should render nested component without ChildContent wrapper" );
+		}
+
+		[TestMethod]
+		public void SlotPrecedenceTest()
+		{
+			var code = BuildRazorFile( "data/codegen/SlotPrecedenceTest.razor" );
+			Assert.IsTrue( code.Contains( "SetRenderFragment<Page>" ), "Should render as slot when slot exists" );
+			Assert.IsFalse( code.Contains( "OpenElement<Body>" ), "Slot should take precedence over component name" );
+		}
+
+		[TestMethod]
+		public void UnknownSlotUnderPanelIsError()
+		{
+			var ex = Assert.ThrowsException<System.Exception>( () => BuildRazorFile( "data/codegen/UnknownSlotError.razor" ) );
+			Assert.IsTrue( ex.Message.Contains( "Unknown child tag" ), "Should produce a helpful error message" );
 		}
 	}
 }

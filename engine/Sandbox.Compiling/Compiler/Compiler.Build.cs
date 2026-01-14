@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
 using System.Collections.Immutable;
@@ -190,7 +190,7 @@ partial class Compiler
 		//
 		// Process Razor files and add the generated syntax trees to the compilation
 		//
-		var razorTrees = ProcessRazorFiles( archive, output );
+		var razorTrees = ProcessRazorFiles( archive, output, compiler );
 		if ( razorTrees.Count > 0 )
 		{
 			compiler = compiler.AddSyntaxTrees( razorTrees );

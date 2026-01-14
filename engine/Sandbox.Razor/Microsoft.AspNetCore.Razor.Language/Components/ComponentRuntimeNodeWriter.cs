@@ -279,7 +279,9 @@ namespace Microsoft.AspNetCore.Razor.Language.Components
 			// Render attributes and splats (in order) before creating the scope.
 			foreach ( var child in node.Children )
 			{
-				if ( isPanelClass )
+				// Only attributes/splats need DeclaringType for type-aware setter code.
+				// DO NOT mark body nodes, otherwise child elements become implicit slots.
+				if ( isPanelClass && (child is HtmlAttributeIntermediateNode || child is ComponentAttributeIntermediateNode || child is SplatIntermediateNode) )
 					child.Annotations["DeclaringType"] = panelClassName;
 
 				if ( child is HtmlAttributeIntermediateNode attribute )
@@ -305,6 +307,54 @@ namespace Microsoft.AspNetCore.Razor.Language.Components
 			// Render body of the tag inside the scope
 			foreach ( var child in node.Body )
 			{
+				// If we're inside a panel class, we need to decide whether this child is a slot or a nested component
+				if ( isPanelClass && child is MarkupElementIntermediateNode childElement )
+				{
+					var catalog = context.Items["RazorCatalog"] as Sandbox.Razor.RazorCatalog;
+					if ( catalog != null )
+					{
+						// Only uppercase tags can be slots/components. Lowercase tags are plain markup.
+						if ( !childElement.LooksLikeAPanelClass )
+						{
+							context.RenderNode( child );
+							continue;
+						}
+
+						// Support legacy explicit template syntax: <Template:ChildContent>...</Template:ChildContent>
+						// Treat this as targeting the slot name after "Template:".
+						if ( childElement.TagName.StartsWith( "Template:", System.StringComparison.Ordinal ) )
+						{
+							var explicitSlot = childElement.TagName.Substring( "Template:".Length );
+							if ( !string.IsNullOrWhiteSpace( explicitSlot ) )
+							{
+								childElement.TagName = explicitSlot;
+							}
+						}
+
+						var childTagName = childElement.TagName;
+						var isSlot = catalog.IsSlot( panelClassName, childTagName );
+						var isKnownComponent = catalog.IsKnownComponent( childTagName );
+
+						if ( isSlot )
+						{
+							// This is a slot - mark it as DeclaringType so it becomes a SetRenderFragment call
+							childElement.Annotations["DeclaringType"] = panelClassName;
+						}
+						else if ( isKnownComponent )
+						{
+							// This is a known component - render as nested element (no DeclaringType annotation)
+							// Do nothing special here - let it render as a normal element
+						}
+						else
+						{
+							// Unknown uppercase tag under a panel - this is an error
+							var message = $"Unknown child tag '<{childTagName}>' under '<{panelClassName}>' in Razor. " +
+										$"It is neither a slot (RenderFragment member) on '{panelClassName}' nor a known Panel component type.";
+							throw new System.Exception( message );
+						}
+					}
+				}
+
 				context.RenderNode( child );
 			}
 
