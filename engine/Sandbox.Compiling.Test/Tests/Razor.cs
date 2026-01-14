@@ -246,7 +246,7 @@ namespace Generator
 		public void NestedComponentWithoutChildContent()
 		{
 			var code = BuildRazorFile( "data/codegen/NestedComponentWithoutChildContent.razor" );
-			Assert.IsTrue( code.Contains( "OpenElement<BankGridItem>" ), "Should render nested component without ChildContent wrapper" );
+			Assert.IsTrue( code.Contains( "OpenElement<ChildPanel>" ), "Should render nested component without ChildContent wrapper" );
 		}
 
 		[TestMethod]
@@ -276,7 +276,7 @@ namespace Generator
 		{
 			var ex = Assert.ThrowsException<System.Exception>( () => BuildRazorFile( "data/codegen/NamespaceQualifiedTagError.razor" ) );
 			Assert.IsTrue( ex.Message.Contains( "Namespace-qualified component tags are not supported" ), "Should suggest using @using + simple tag name" );
-			Assert.IsTrue( ex.Message.Contains( "BankGrid" ), "Should suggest the simple component tag" );
+			Assert.IsTrue( ex.Message.Contains( "FancyButton" ), "Should suggest the simple component tag" );
 		}
 	}
 }

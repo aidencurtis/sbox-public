@@ -3,12 +3,12 @@ using Sandbox.UI;
 
 namespace TestComponents;
 
-public class BankGrid : Panel
+public class ParentPanel : Panel
 {
 	public RenderFragment Body { get; set; }
 }
 
-public class BankGridItem : Panel
+public class ChildPanel : Panel
 {
 }
 
@@ -32,6 +32,6 @@ public class DerivedWithSlot : BaseWithSlot
 {
 }
 
-public class BankGridDropZone : Panel
+public class HostPanel : Panel
 {
 }
