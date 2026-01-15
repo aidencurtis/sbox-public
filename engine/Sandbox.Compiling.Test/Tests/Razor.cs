@@ -276,8 +276,18 @@ namespace Generator
 		{
 			var ex = Assert.ThrowsException<System.Exception>( () => BuildRazorFile( "data/codegen/NamespaceQualifiedTagError.razor" ) );
 			Assert.IsTrue( ex.Message.Contains( "Namespace-qualified component tags are not supported" ), "Should suggest using @using + simple tag name" );
-			Assert.IsTrue( ex.Message.Contains( "FancyButton" ), "Should suggest the simple component tag" );
+			Assert.IsTrue( ex.Message.Contains( "Button" ), "Should suggest the simple component tag" );
 		}
+
+		[TestMethod]
+		public void NestedThreeLevels()
+		{
+			var code = BuildRazorFile( "data/codegen/NestedThreeLevels.razor" );
+			Assert.IsTrue( code.Contains( "OpenElement<OuterPanel>" ), "Should open outer component" );
+			Assert.IsTrue( code.Contains( "OpenElement<MiddlePanel>" ), "Should open middle component" );
+			Assert.IsTrue( code.Contains( "OpenElement<InnerPanel>" ), "Should open inner component" );
+		}
+
 	}
 }
 

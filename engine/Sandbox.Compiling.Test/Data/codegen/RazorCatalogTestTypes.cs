@@ -35,3 +35,15 @@ public class DerivedWithSlot : BaseWithSlot
 public class HostPanel : Panel
 {
 }
+
+public class OuterPanel : Panel
+{
+}
+
+public class MiddlePanel : Panel
+{
+}
+
+public class InnerPanel : Panel
+{
+}
