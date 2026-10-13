@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -16,7 +17,31 @@ internal sealed class McpWire( Stream input, int maxBytes = 8 * 1024 * 1024 )
 	int length;
 	static readonly UTF8Encoding Encoding = new( false, true );
 
-	internal static string PipeName( int pid, long startTime ) => $"sbox-mcp-{pid}-{startTime:x}";
+	/// <summary>
+	/// Pipe name for an engine process. The start time stops a client attaching to a reused PID.
+	/// </summary>
+	internal static string PipeName( Process process ) => $"sbox-mcp-{process.Id}-{StartTime( process ):x}";
+
+	/// <summary>
+	/// A start time that every process computes identically. On Linux, <see cref="Process.StartTime"/> adds
+	/// the start offset to a boot time each process derives from its own clock reads, so two processes
+	/// disagree by milliseconds. The raw clock ticks since boot in <c>/proc/[pid]/stat</c> are exact.
+	/// </summary>
+	static long StartTime( Process process )
+	{
+		if ( !OperatingSystem.IsLinux() )
+			return process.StartTime.ToUniversalTime().Ticks;
+
+		// The command name in parentheses may contain spaces, so fields are counted after its closing
+		// parenthesis. That leaves state as the first field and starttime (field 22) as the twentieth.
+		var stat = File.ReadAllText( $"/proc/{process.Id}/stat" );
+		var fields = stat.AsSpan( stat.LastIndexOf( ')' ) + 2 );
+
+		for ( int i = 0; i < 19; i++ )
+			fields = fields[(fields.IndexOf( ' ' ) + 1)..];
+
+		return long.Parse( fields[..fields.IndexOf( ' ' )] );
+	}
 
 	internal async Task<string> ReadAsync( CancellationToken cancellation )
 	{

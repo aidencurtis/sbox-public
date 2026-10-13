@@ -10,8 +10,9 @@ using System.Text;
 namespace Sandbox.Cli;
 
 /// <summary>
-/// Owns a launched instance. A non-inherited Windows job handle guarantees cleanup even
-/// when the CLI is killed. Job membership is assigned atomically during process creation.
+/// Owns a launched instance. On Windows, a non-inherited job handle guarantees cleanup even when
+/// the CLI is killed, and job membership is assigned atomically during process creation. Elsewhere
+/// the process tree is killed on dispose, so it survives only if the CLI itself is killed outright.
 /// </summary>
 internal sealed class OwnedProcess : IDisposable
 {
@@ -21,7 +22,10 @@ internal sealed class OwnedProcess : IDisposable
 	internal OwnedProcess( string executable, string directory, IReadOnlyList<string> arguments )
 	{
 		if ( !OperatingSystem.IsWindows() )
-			throw new PlatformNotSupportedException( "Launching owned instances currently requires Windows. Use --connect for an existing instance." );
+		{
+			Process = Start( executable, directory, arguments );
+			return;
+		}
 
 		job = CreateJobObject( IntPtr.Zero, null );
 		if ( job.IsInvalid )
@@ -92,6 +96,29 @@ internal sealed class OwnedProcess : IDisposable
 		}
 	}
 
+	/// <summary>
+	/// Start without the CLI's stdio: the engine must not read MCP input or write into the MCP output.
+	/// Its logs remain on disk, so the redirected output is discarded.
+	/// </summary>
+	static Process Start( string executable, string directory, IReadOnlyList<string> arguments )
+	{
+		var start = new ProcessStartInfo( executable, arguments )
+		{
+			WorkingDirectory = directory,
+			UseShellExecute = false,
+			RedirectStandardInput = true,
+			RedirectStandardOutput = true,
+			RedirectStandardError = true
+		};
+
+		var process = Process.Start( start ) ?? throw new InvalidOperationException( $"Could not start {executable}." );
+		process.StandardInput.Close();
+		_ = process.StandardOutput.BaseStream.CopyToAsync( Stream.Null );
+		_ = process.StandardError.BaseStream.CopyToAsync( Stream.Null );
+
+		return process;
+	}
+
 	internal static string QuoteArgument( string argument )
 	{
 		// Windows CommandLineToArgvW rules: double backslashes before a quote or the end.
@@ -118,7 +145,17 @@ internal sealed class OwnedProcess : IDisposable
 	/// </summary>
 	public void Dispose()
 	{
-		job.Dispose();
+		if ( job is null )
+		{
+			try
+			{
+				if ( !Process.HasExited )
+					Process.Kill( entireProcessTree: true );
+			}
+			catch ( InvalidOperationException ) { } // exited in the meantime
+		}
+
+		job?.Dispose();
 		Process.Dispose();
 	}
 

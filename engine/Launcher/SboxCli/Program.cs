@@ -48,6 +48,11 @@ internal static class Program
 
 			using var lifetime = new CancellationTokenSource();
 			Console.CancelKeyPress += ( _, e ) => { e.Cancel = true; lifetime.Cancel(); };
+
+			// Outside Windows there is no job object to close an owned instance if we are terminated,
+			// so termination and hangup disconnect gracefully instead.
+			using var terminate = OperatingSystem.IsWindows() ? null : PosixSignalRegistration.Create( PosixSignal.SIGTERM, Stop );
+			using var hangup = OperatingSystem.IsWindows() ? null : PosixSignalRegistration.Create( PosixSignal.SIGHUP, Stop );
 			var messages = Channel.CreateBounded<string>( 32 );
 			var input = ReadInput();
 			var connection = Connect( options, messages.Reader, lifetime.Token );
@@ -65,6 +70,12 @@ internal static class Program
 			}
 
 			return 0;
+
+			void Stop( PosixSignalContext context )
+			{
+				context.Cancel = true;
+				lifetime.Cancel();
+			}
 
 			async Task ReadInput()
 			{
@@ -103,7 +114,8 @@ internal static class Program
 			}
 			else
 			{
-				var executable = Path.Combine( options.EngineDirectory, options.Mode == "--project" ? "sbox-dev.exe" : "sbox.exe" );
+				var name = options.Mode == "--project" ? "sbox-dev" : "sbox";
+				var executable = Path.Combine( options.EngineDirectory, OperatingSystem.IsWindows() ? $"{name}.exe" : name );
 				if ( !File.Exists( executable ) )
 					throw new FileNotFoundException( "Engine executable not found. Use --engine to specify the game directory.", executable );
 
@@ -168,18 +180,45 @@ internal static class Program
 		}
 	}
 
-	static NamedPipeClientStream CreatePipe( Process process ) => new( ".",
-		McpWire.PipeName( process.Id, process.StartTime.ToUniversalTime().Ticks ), PipeDirection.InOut,
+	static NamedPipeClientStream CreatePipe( Process process ) => new( ".", McpWire.PipeName( process ), PipeDirection.InOut,
 		PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly );
 
 	static void VerifyServer( NamedPipeClientStream pipe, int pid )
 	{
-		if ( OperatingSystem.IsWindows() && (!GetNamedPipeServerProcessId( pipe.SafePipeHandle, out var serverPid ) || serverPid != pid) )
+		int? serverPid = null;
+		if ( OperatingSystem.IsWindows() )
+			serverPid = GetNamedPipeServerProcessId( pipe.SafePipeHandle, out var windowsPid ) ? windowsPid : 0;
+		else if ( OperatingSystem.IsLinux() )
+			serverPid = GetPeerProcessId( pipe.SafePipeHandle );
+
+		if ( serverPid is not null && serverPid != pid )
 			throw new IOException( "The named pipe does not belong to the requested process." );
 	}
 
 	[DllImport( "kernel32.dll", SetLastError = true )]
 	static extern bool GetNamedPipeServerProcessId( SafePipeHandle pipe, out int serverPid );
+
+	/// <summary>
+	/// The process on the other end of a Unix domain socket, from SO_PEERCRED, or 0 if it can't be read.
+	/// </summary>
+	static int GetPeerProcessId( SafePipeHandle socket )
+	{
+		const int SolSocket = 1, SoPeerCred = 17;
+		var length = Marshal.SizeOf<PeerCredentials>();
+
+		return getsockopt( socket, SolSocket, SoPeerCred, out var credentials, ref length ) == 0 ? credentials.Pid : 0;
+	}
+
+	[StructLayout( LayoutKind.Sequential )]
+	struct PeerCredentials
+	{
+		public int Pid;
+		public uint Uid;
+		public uint Gid;
+	}
+
+	[DllImport( "libc", SetLastError = true )]
+	static extern int getsockopt( SafePipeHandle socket, int level, int option, out PeerCredentials value, ref int length );
 
 	static async Task Relay( NamedPipeClientStream pipe, ChannelReader<string> messages, Options options, CancellationToken cancellation )
 	{

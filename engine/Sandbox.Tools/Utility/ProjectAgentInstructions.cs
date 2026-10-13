@@ -22,7 +22,7 @@ internal static class ProjectAgentInstructions
 
 		If the guide is missing after cloning, locate the engine using `FACEPUNCH_ENGINE`
 		(on Windows, also check the user environment variable), or ask for its installation path.
-		Run `bin/managed/sbox-cli.exe --help` from that installation and read the guide it names.
+		Run `bin/managed/sbox-cli --help` (`sbox-cli.exe` on Windows) from that installation and read the guide it names.
 		Opening this project's `.sbproj` in the editor recreates the local guide.
 		""";
 
@@ -84,6 +84,7 @@ internal static class ProjectAgentInstructions
 	static string CreateGuide( string configPath, string enginePath )
 	{
 		var managedPath = Path.Combine( enginePath, "bin", "managed" ).Replace( '\\', '/' );
+		var cli = OperatingSystem.IsWindows() ? "sbox-cli.exe" : "sbox-cli";
 
 		return $$"""
 			# s&box project guide
@@ -96,15 +97,14 @@ internal static class ProjectAgentInstructions
 
 			- Project file: `{{configPath.Replace( '\\', '/' )}}`
 			- Engine directory: `{{enginePath.Replace( '\\', '/' )}}`
-			- CLI: `{{managedPath}}/sbox-cli.exe`
+			- CLI: `{{managedPath}}/{{cli}}`
 			- CLI usage guide: `{{managedPath}}/sbox-cli.md`
 			- Engine API reference: `{{managedPath}}/Sandbox.Engine.xml`
 			- Editor API reference: `{{managedPath}}/Sandbox.Tools.xml`
 
 			Read the CLI usage guide before connecting. Use the installed API references and
 			existing project code to check APIs rather than assuming Unity or another engine's API.
-			The .NET CLI can also be invoked as `dotnet sbox-cli.dll` from the managed directory;
-			launching owned editor/game instances currently requires Windows.
+			The .NET CLI can also be invoked as `dotnet sbox-cli.dll` from the managed directory.
 
 			## Connect and inspect
 

@@ -1,9 +1,9 @@
 # Using sbox-cli
 
-This guide ships beside `sbox-cli.exe` in `bin/managed`. Use the executable from that
-installation to discover, launch and control an s&box editor or game. It speaks MCP over
-stdin/stdout and connects to one instance through a local named pipe. No HTTP URL or port
-configuration is needed.
+This guide ships beside `sbox-cli` (`sbox-cli.exe` on Windows) in `bin/managed`. Use the
+executable from that installation to discover, launch and control an s&box editor or game. It
+speaks MCP over stdin/stdout and connects to one instance through a local named pipe (a Unix
+domain socket on Linux). No HTTP URL or port configuration is needed.
 
 Projects created by the launcher or opened in the editor get a short root `AGENTS.md`
 section pointing to `.sbox/agent-guide.md`. Existing author instructions are preserved.
@@ -33,10 +33,12 @@ Project Settings > AI stores shared preferences in the `.sbproj`. Both options d
 .\sbox-cli.exe --game facepunch.sandbox
 ```
 
+On Linux, run `./sbox-cli` with the same arguments.
+
 Use an explicit `.sbproj` path. A directory argument looks for `.sbproj` inside that directory.
 Editors expose a pipe unless disabled in Project Settings > AI. An existing game must have started with `-mcp` to accept
-`--connect`. Owned launches currently require Windows. `--engine <directory>` overrides the
-installation directory containing `sbox.exe` and `sbox-dev.exe`.
+`--connect`. `--engine <directory>` overrides the installation directory containing `sbox` and
+`sbox-dev` (`sbox.exe` and `sbox-dev.exe` on Windows).
 
 ## Keep one connection open
 
@@ -113,7 +115,9 @@ directory when finished. Do not assume the next connection will reuse it.
 
 Wait for the last response, close stdin, then wait for the CLI to exit. With `--project` or
 `--game`, this also closes the owned instance. With `--connect`, the instance stays running.
-A CLI-owned process tree is also terminated if the CLI crashes or is forcibly killed.
+On Windows, a CLI-owned process tree is also terminated if the CLI crashes or is forcibly killed.
+On Linux it is terminated when the CLI exits, is interrupted, or receives SIGTERM or SIGHUP, but
+an instance outlives a CLI killed with SIGKILL.
 
 Timeout options are seconds: `--startup-timeout` defaults to 180, `--idle-timeout` to 600,
 and `--request-timeout` to 300. Idle timeouts apply only without outstanding requests.

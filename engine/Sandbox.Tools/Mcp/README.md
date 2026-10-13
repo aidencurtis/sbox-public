@@ -3,12 +3,14 @@
 For the agent-facing usage guide shipped beside the executable, see
 [`sbox-cli.md`](../../Launcher/SboxCli/sbox-cli.md). Run `sbox-cli --help` to find its installed path.
 
-`game/bin/managed/sbox-cli.exe` is a .NET 10 console application that keeps one MCP connection
-open over stdin/stdout. It has no engine dependencies of its own. Editors expose a local
-named pipe by default, controlled by **Project Settings > AI > Enable MCP Communication**;
-games expose one when launched with `-mcp`. The pipe is restricted to the current
-OS user and named using the process ID and start time. On Windows the CLI also verifies the
-server's actual PID. Multiple editors and games can therefore run independently without TCP ports.
+`game/bin/managed/sbox-cli` (`sbox-cli.exe` on Windows) is a .NET 10 console application that keeps
+one MCP connection open over stdin/stdout. It has no engine dependencies of its own. Editors expose
+a local named pipe by default, controlled by **Project Settings > AI > Enable MCP Communication**;
+games expose one when launched with `-mcp`. The pipe is restricted to the current OS user and named
+using the process ID and start time. On Linux the start time is read from `/proc/<pid>/stat`, since
+`Process.StartTime` differs slightly between processes there. On Windows and Linux the CLI also
+verifies the server's actual PID. Multiple editors and games can therefore run independently
+without TCP ports.
 
 The AI settings page also controls **Write to AGENTS.md**, enabled by default. Disabling it
 stops writes to both the root instructions and `.sbox/agent-guide.md`, leaving existing files
@@ -30,7 +32,8 @@ game/bin/managed/sbox-cli.exe --game facepunch.sandbox
 ```
 
 Launches open normal visible windows. `--engine <directory>` overrides the game installation
-inferred from the CLI's location. Owned launches currently require Windows. An existing process
+inferred from the CLI's location. Owned launches are cleaned up by a job object on Windows; on
+Linux they are killed when the CLI exits, is interrupted, or receives SIGTERM or SIGHUP. An existing process
 must be running an engine build with the pipe support; restart older editors after rebuilding.
 
 ## Stdio protocol and session files
